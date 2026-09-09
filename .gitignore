@@ -1,0 +1,31 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Node
+node_modules/
+dist/
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+
+# Tauri
+frontend/src-tauri/target/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Old conversation file
+conversation_plateforme_messagerie_unifiee_mis_a_jour.txt
+
+# Old crates/app (replaced by frontend/src-tauri)
+crates/app/

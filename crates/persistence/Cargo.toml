@@ -1,0 +1,13 @@
+[package]
+name = "socials-persistence"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+socials-core = { path = "../core" }
+sqlx.workspace = true
+tokio.workspace = true
+serde.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+async-trait = "0.1"
