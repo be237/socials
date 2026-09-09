@@ -20,19 +20,35 @@ interface Conversation {
 
 const API = 'http://localhost:3000/api'
 
-function getConnectorIcon(name: string): string {
-  if (name.toLowerCase().includes('telegram')) return '✈️'
-  if (name.toLowerCase().includes('discord')) return '🎮'
-  if (name.toLowerCase().includes('whatsapp')) return '📱'
-  if (name.toLowerCase().includes('gmail') || name.toLowerCase().includes('email')) return '📧'
+function isTelegram(title: string): boolean {
+  return title.startsWith('TG:') || title.toLowerCase().includes('telegram')
+}
+
+function formatConversationTitle(title: string): string {
+  // Transform "TG:8925002788:@username" → "@username"
+  if (title.startsWith('TG:')) {
+    const parts = title.split(':')
+    // parts[0] = "TG", parts[1] = chat_id, parts[2..] = display name (may contain colons)
+    if (parts.length >= 3) {
+      return parts.slice(2).join(':')
+    }
+  }
+  return title
+}
+
+function getConnectorIcon(title: string): string {
+  if (isTelegram(title)) return '✈️'
+  if (title.toLowerCase().includes('discord')) return '🎮'
+  if (title.toLowerCase().includes('whatsapp')) return '📱'
+  if (title.toLowerCase().includes('gmail') || title.toLowerCase().includes('email')) return '📧'
   return '💬'
 }
 
-function getConnectorColor(name: string): string {
-  if (name.toLowerCase().includes('telegram')) return 'bg-blue-500'
-  if (name.toLowerCase().includes('discord')) return 'bg-indigo-500'
-  if (name.toLowerCase().includes('whatsapp')) return 'bg-green-500'
-  if (name.toLowerCase().includes('gmail') || name.toLowerCase().includes('email')) return 'bg-red-500'
+function getConnectorColor(title: string): string {
+  if (isTelegram(title)) return 'bg-blue-500'
+  if (title.toLowerCase().includes('discord')) return 'bg-indigo-500'
+  if (title.toLowerCase().includes('whatsapp')) return 'bg-green-500'
+  if (title.toLowerCase().includes('gmail') || title.toLowerCase().includes('email')) return 'bg-red-500'
   return 'bg-gray-500'
 }
 
@@ -177,8 +193,25 @@ export default function App() {
 
         {/* New chat modal */}
         {showNewChat && (
-          <div className="p-3 border-b border-gray-800 bg-gray-850">
-            <div className="flex gap-2">
+          <div className="border-b border-gray-800 bg-gray-900">
+            <div className="p-3 flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-300">Nouvelle conversation</span>
+              <button
+                onClick={() => { setShowNewChat(false); setNewChatTitle('') }}
+                className="text-gray-500 hover:text-gray-300 transition-colors text-lg leading-none"
+              >
+                ×
+              </button>
+            </div>
+            <div className="px-3 pb-2 text-xs text-gray-500 bg-blue-950/30 mx-3 mb-3 rounded-lg p-2 border border-blue-900/40">
+              <div className="flex items-start gap-1.5">
+                <span className="text-blue-400 mt-0.5">✈️</span>
+                <div>
+                  <span className="text-blue-300 font-medium">Telegram :</span> pour qu'un contact apparaisse ici, il doit d'abord envoyer un message à votre bot. Une fois qu'il l'a fait, la conversation apparaît automatiquement.
+                </div>
+              </div>
+            </div>
+            <div className="px-3 pb-3 flex gap-2">
               <input
                 type="text"
                 placeholder="Nom de la conversation..."
@@ -192,13 +225,7 @@ export default function App() {
                 onClick={handleCreateChat}
                 className="bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
               >
-                Creer
-              </button>
-              <button
-                onClick={() => setShowNewChat(false)}
-                className="bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded-lg text-sm transition-colors"
-              >
-                X
+                Créer
               </button>
             </div>
           </div>
@@ -228,7 +255,7 @@ export default function App() {
                     {icon}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate">{conv.title}</div>
+                    <div className="font-medium text-sm truncate">{formatConversationTitle(conv.title)}</div>
                     {conv.last_message_at && (
                       <div className="text-xs text-gray-500 mt-0.5">
                         {new Date(conv.last_message_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}

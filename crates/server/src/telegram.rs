@@ -124,7 +124,7 @@ impl TelegramBot {
         let sender_name = format!("{} {}", msg.from.first_name, msg.from.last_name.as_deref().unwrap_or(""));
 
         // Find or create conversation for this chat
-        let conv = self.find_or_create_conversation(core, chat_id, &msg.chat).await?;
+        let conv = self.find_or_create_conversation(core, chat_id, &msg.chat, &msg.from).await?;
 
         let now = Utc::now();
         let message = socials_core::entities::message::Message {
@@ -159,6 +159,7 @@ impl TelegramBot {
         core: &socials_core::services::CoreService,
         chat_id: i64,
         chat: &TgChat,
+        sender: &TgUser,
     ) -> Result<socials_core::entities::conversation::Conversation, Box<dyn std::error::Error + Send + Sync>> {
         let title_prefix = format!("TG:{}:", chat_id);
         if let Ok(Some(existing)) = core.find_conversation_by_title_prefix(&title_prefix).await {
@@ -166,11 +167,24 @@ impl TelegramBot {
         }
 
         let now = Utc::now();
-        let title = format!(
-            "TG:{}:{}",
-            chat_id,
-            chat.title.as_deref().unwrap_or(&chat.chat_type)
-        );
+
+        // For private chats, use the sender's real name instead of "private"
+        let display_name = if chat.chat_type == "private" {
+            if let Some(ref username) = sender.username {
+                format!("@{}", username)
+            } else {
+                let last = sender.last_name.as_deref().unwrap_or("").trim().to_string();
+                if last.is_empty() {
+                    sender.first_name.clone()
+                } else {
+                    format!("{} {}", sender.first_name, last)
+                }
+            }
+        } else {
+            chat.title.as_deref().unwrap_or(&chat.chat_type).to_string()
+        };
+
+        let title = format!("TG:{}:{}", chat_id, display_name);
 
         let conv = socials_core::entities::conversation::Conversation {
             id: Uuid::new_v4(),
