@@ -62,10 +62,7 @@ Socials/
 │   └── app/telegram.py          (polling Telegram)
 ├── frontend/
 │   ├── src/App.tsx              (interface React)
-│   └── src-tauri/               (application desktop)
-└── docs/
-    ├── evolution_projet.md       (historique des decisions)
-    └── specification_core_v0.1.md (specification du Core)
+│   └── src-tauri/               (enveloppe desktop Tauri)
 ```
 
 ## Politique de gratuité
@@ -75,11 +72,6 @@ Socials/
 - Pas de cloud obligatoire
 - Pas de SaaS obligatoire
 - Tout fonctionne en local
-
-## Documentation
-
-- `docs/evolution_projet.md` — Historique complet des decisions
-- `docs/specification_core_v0.1.md` — Specification detaillee du Core
 
 ## License
 

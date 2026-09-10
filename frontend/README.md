@@ -1,45 +1,31 @@
-# React + TypeScript + Vite
+# Socials frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Interface React + TypeScript + Vite de Socials.
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
 ## Développement
 
-Le backend est maintenant en Python + FastAPI :
+Le backend Python doit être lancé dans un terminal :
 
 ```bash
 cd ../backend
-python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
 python -m app.main
 ```
 
-Dans un autre terminal, lance l'interface avec `npm run dev`.
+Puis, depuis ce dossier :
+
+```bash
+npm install
+npm run dev
+```
+
+L'API locale est disponible sur `http://localhost:3000`.
+
+## Desktop
+
+Tauri fournit uniquement l'enveloppe desktop et démarre le backend Python
+local depuis `../backend`.
+
+```bash
+npm run tauri:dev
+```

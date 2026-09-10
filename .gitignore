@@ -1,6 +1,7 @@
 # Rust
 /target/
 **/*.rs.bk
+frontend/src-tauri/target/
 
 # Node
 node_modules/
@@ -14,8 +15,6 @@ backend/.env
 *.db-wal
 
 # Tauri
-frontend/src-tauri/target/
-
 # IDE
 .vscode/
 .idea/

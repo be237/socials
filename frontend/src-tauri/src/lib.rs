@@ -6,14 +6,21 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 let backend_dir =
                     std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../backend");
-                let python = if std::process::Command::new("python3")
+                let python = if cfg!(target_os = "windows") {
+                    backend_dir.join(".venv/Scripts/python.exe")
+                } else {
+                    backend_dir.join(".venv/bin/python")
+                };
+                let python = if python.exists() {
+                    python
+                } else if std::process::Command::new("python3")
                     .arg("--version")
                     .status()
                     .is_ok()
                 {
-                    "python3"
+                    std::path::PathBuf::from("python3")
                 } else {
-                    "python"
+                    std::path::PathBuf::from("python")
                 };
                 let result = std::process::Command::new(python)
                     .current_dir(&backend_dir)
