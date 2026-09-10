@@ -1,12 +1,12 @@
+use crate::entities::account::Account;
+use crate::entities::attachment::Attachment;
+use crate::entities::contact::Contact;
+use crate::entities::conversation::Conversation;
+use crate::entities::identity::Identity;
+use crate::entities::message::Message;
+use crate::entities::user::User;
 use async_trait::async_trait;
 use uuid::Uuid;
-use crate::entities::user::User;
-use crate::entities::account::Account;
-use crate::entities::contact::Contact;
-use crate::entities::identity::Identity;
-use crate::entities::conversation::Conversation;
-use crate::entities::message::Message;
-use crate::entities::attachment::Attachment;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 
@@ -23,7 +23,11 @@ pub trait UserRepository: Send + Sync {
 pub trait AccountRepository: Send + Sync {
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Account>, Error>;
     async fn find_by_user_id(&self, user_id: Uuid) -> Result<Vec<Account>, Error>;
-    async fn find_by_connector(&self, user_id: Uuid, connector: &str) -> Result<Vec<Account>, Error>;
+    async fn find_by_connector(
+        &self,
+        user_id: Uuid,
+        connector: &str,
+    ) -> Result<Vec<Account>, Error>;
     async fn create(&self, account: &Account) -> Result<Account, Error>;
     async fn update(&self, account: &Account) -> Result<Account, Error>;
     async fn delete(&self, id: Uuid) -> Result<(), Error>;

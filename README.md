@@ -1,46 +1,43 @@
 # Socials
 
-Une plateforme de messagerie unifiee qui centralise les conversations de plusieurs services.
+Une plateforme de messagerie unifiee qui centralise les conversations de plusieurs services,
+avec un backend Python local-first et une interface React/Tauri.
 
 ## Architecture
 
 ```
 Socials
-├── Core (Rust)           — Moteur central, entites, evenements
-├── Persistence (SQLite)  — Stockage local des donnees
-├── Connecteurs           — Adaptateurs pour chaque plateforme
-│   └── Telegram          — Connecteur Telegram Bot API
-├── Server (Axum)         — API REST interne
-└── UI (a venir)          — Interface Tauri + React
+├── backend/app           — FastAPI, SQLite, bus d'evenements, Telegram
+├── frontend/src          — Interface React + TypeScript
+└── frontend/src-tauri    — Fenetre desktop Tauri
 ```
 
 ## Stack technique
 
 | Composant | Technologie | Cout |
 |-----------|-------------|------|
-| Langage | Rust | 0 EUR |
-| Build | Cargo | 0 EUR |
+| Backend | Python + FastAPI | 0 EUR |
+| Frontend | React + TypeScript | 0 EUR |
+| Desktop | Tauri | 0 EUR |
 | DB locale | SQLite | 0 EUR |
-| ORM | SQLx | 0 EUR |
-| Async | Tokio | 0 EUR |
-| API | Axum | 0 EUR |
-| Desktop | Tauri (a venir) | 0 EUR |
-| UI | React + TypeScript (a venir) | 0 EUR |
+| Temps reel | WebSocket | 0 EUR |
 
 ## Demarrer
 
 ```bash
-# Installer Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+# Installer les dependances backend
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 
-# Build
-cargo build
+# Lancer l'API sur http://localhost:3000
+python -m app.main
 
-# Lancer le serveur
-cargo run -p socials-server
-
-# Tests
-cargo test
+# Dans un autre terminal, lancer l'interface sur http://localhost:5173
+cd frontend
+npm install
+npm run dev
 ```
 
 ## API Endpoints
@@ -59,29 +56,13 @@ cargo test
 
 ```
 Socials/
-├── Cargo.toml                    (workspace)
-├── crates/
-│   ├── core/                     (moteur central)
-│   │   └── src/
-│   │       ├── entities/         (User, Account, Contact, etc.)
-│   │       ├── events/           (bus d'evenements)
-│   │       ├── connectors/       (trait Connector)
-│   │       ├── services/         (CoreService)
-│   │       └── repositories/     (traits de persistence)
-│   ├── persistence/              (implementation SQLite)
-│   │   └── src/
-│   │       ├── sqlite.rs         (connexion DB)
-│   │       └── repository/       (implementations des repositories)
-│   ├── server/                   (API Axum)
-│   │   └── src/
-│   │       ├── api.rs            (endpoints REST)
-│   │       ├── lib.rs
-│   │       └── main.rs           (point d'entree)
-│   ├── shared/                   (types communs)
-│   └── app/                      (application desktop)
-├── connectors/
-│   └── telegram/                 (connecteur Telegram)
-├── migrations/                   (schemas SQL)
+├── backend/
+│   ├── app/main.py              (API FastAPI et WebSocket)
+│   ├── app/repositories.py      (persistance SQLite)
+│   └── app/telegram.py          (polling Telegram)
+├── frontend/
+│   ├── src/App.tsx              (interface React)
+│   └── src-tauri/               (application desktop)
 └── docs/
     ├── evolution_projet.md       (historique des decisions)
     └── specification_core_v0.1.md (specification du Core)

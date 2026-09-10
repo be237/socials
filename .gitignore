@@ -5,6 +5,8 @@
 # Node
 node_modules/
 dist/
+backend/.venv/
+backend/.env
 
 # Database
 *.db

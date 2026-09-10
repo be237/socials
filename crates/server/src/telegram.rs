@@ -1,7 +1,7 @@
+use chrono::Utc;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::Utc;
 
 #[derive(Debug, Deserialize)]
 pub struct TgUpdate {
@@ -70,16 +70,22 @@ impl TelegramBot {
     pub async fn new(token: String) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let client = Client::new();
 
-        let resp: TgResponse<TgMe> = client
+        let response = client
             .get(format!("https://api.telegram.org/bot{}/getMe", token))
             .send()
             .await?
-            .json()
-            .await?;
+            .error_for_status()?;
+        let resp: TgResponse<TgMe> = response.json().await?;
+        if !resp.ok {
+            return Err("Telegram rejected the bot token".into());
+        }
 
         let me = resp.result;
 
-        println!("Telegram bot connected: @{}", me.username.unwrap_or_default());
+        println!(
+            "Telegram bot connected: @{}",
+            me.username.unwrap_or_default()
+        );
 
         Ok(Self {
             token,
@@ -89,16 +95,20 @@ impl TelegramBot {
         })
     }
 
-    pub async fn poll_updates(&mut self, core: &socials_core::services::CoreService) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn poll_updates(
+        &mut self,
+        core: &socials_core::services::CoreService,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let url = format!(
             "https://api.telegram.org/bot{}/getUpdates?offset={}&timeout=30",
             self.token, self.offset
         );
 
-        let resp: TgResponse<Vec<TgUpdate>> = self.client.get(&url).send().await?.json().await?;
+        let response = self.client.get(&url).send().await?.error_for_status()?;
+        let resp: TgResponse<Vec<TgUpdate>> = response.json().await?;
 
         if !resp.ok {
-            return Ok(());
+            return Err("Telegram getUpdates returned ok=false".into());
         }
 
         for update in resp.result {
@@ -121,16 +131,25 @@ impl TelegramBot {
         text: &str,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let chat_id = msg.chat.id;
-        let sender_name = format!("{} {}", msg.from.first_name, msg.from.last_name.as_deref().unwrap_or(""));
+        let sender_name = format!(
+            "{} {}",
+            msg.from.first_name,
+            msg.from.last_name.as_deref().unwrap_or("")
+        );
 
         // Find or create conversation for this chat
-        let conv = self.find_or_create_conversation(core, chat_id, &msg.chat, &msg.from).await?;
+        let conv = self
+            .find_or_create_conversation(core, chat_id, &msg.chat, &msg.from)
+            .await?;
 
         let now = Utc::now();
         let message = socials_core::entities::message::Message {
             id: Uuid::new_v4(),
             conversation_id: conv.id,
-            sender_id: Uuid::new_v4(),
+            sender_id: Uuid::new_v5(
+                &Uuid::NAMESPACE_URL,
+                format!("telegram:user:{}", msg.from.id).as_bytes(),
+            ),
             content: text.to_string(),
             message_type: socials_core::entities::message::MessageType::Text,
             status: socials_core::entities::message::MessageStatus::Delivered,
@@ -160,12 +179,16 @@ impl TelegramBot {
         chat_id: i64,
         chat: &TgChat,
         sender: &TgUser,
-    ) -> Result<socials_core::entities::conversation::Conversation, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<
+        socials_core::entities::conversation::Conversation,
+        Box<dyn std::error::Error + Send + Sync>,
+    > {
         let title_prefix = format!("TG:{}:", chat_id);
         if let Ok(Some(existing)) = core.find_conversation_by_title_prefix(&title_prefix).await {
             return Ok(existing);
         }
 
+        let user = core.get_or_create_default_user().await?;
         let now = Utc::now();
 
         // For private chats, use the sender's real name instead of "private"
@@ -188,7 +211,7 @@ impl TelegramBot {
 
         let conv = socials_core::entities::conversation::Conversation {
             id: Uuid::new_v4(),
-            user_id: Uuid::new_v4(),
+            user_id: user.id,
             conversation_type: socials_core::entities::conversation::ConversationType::Private,
             title,
             created_at: now,
@@ -200,13 +223,27 @@ impl TelegramBot {
         Ok(created)
     }
 
-    pub async fn send_message(&self, chat_id: i64, text: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn send_message(
+        &self,
+        chat_id: i64,
+        text: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let url = format!("https://api.telegram.org/bot{}/sendMessage", self.token);
 
-        self.client.post(&url)
-            .json(&TgSendMessageRequest { chat_id, text: text.to_string() })
+        let response = self
+            .client
+            .post(&url)
+            .json(&TgSendMessageRequest {
+                chat_id,
+                text: text.to_string(),
+            })
             .send()
-            .await?;
+            .await?
+            .error_for_status()?;
+        let result: TgResponse<TgMessage> = response.json().await?;
+        if !result.ok {
+            return Err("Telegram rejected the outgoing message".into());
+        }
 
         Ok(())
     }
@@ -216,12 +253,9 @@ impl TelegramBot {
     }
 
     pub fn extract_chat_id(title: &str) -> Option<i64> {
-        if title.starts_with("TG:") {
-            let parts: Vec<&str> = title.split(':').collect();
-            if parts.len() >= 2 {
-                return parts[1].parse().ok();
-            }
-        }
-        None
+        title
+            .strip_prefix("TG:")
+            .and_then(|value| value.split_once(':').map(|(id, _)| id))
+            .and_then(|id| id.parse().ok())
     }
 }

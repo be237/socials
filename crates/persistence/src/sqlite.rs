@@ -8,7 +8,7 @@ pub struct Database {
 impl Database {
     pub async fn new(database_path: &Path) -> Result<Self, sqlx::Error> {
         let database_url = format!("sqlite:{}?mode=rwc", database_path.display());
-        
+
         let pool = SqlitePoolOptions::new()
             .max_connections(5)
             .connect(&database_url)

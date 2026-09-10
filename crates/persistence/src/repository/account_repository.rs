@@ -1,9 +1,9 @@
 use async_trait::async_trait;
+use socials_core::entities::account::Account;
+use socials_core::repositories::{AccountRepository, Error};
 use sqlx::Row;
 use sqlx::SqlitePool;
 use uuid::Uuid;
-use socials_core::entities::account::Account;
-use socials_core::repositories::{AccountRepository, Error};
 
 pub struct SqliteAccountRepository {
     pool: SqlitePool,
@@ -54,7 +54,11 @@ impl AccountRepository for SqliteAccountRepository {
         Ok(rows.into_iter().map(parse_account).collect())
     }
 
-    async fn find_by_connector(&self, user_id: Uuid, connector: &str) -> Result<Vec<Account>, Error> {
+    async fn find_by_connector(
+        &self,
+        user_id: Uuid,
+        connector: &str,
+    ) -> Result<Vec<Account>, Error> {
         let rows = sqlx::query("SELECT * FROM accounts WHERE user_id = ? AND connector_name = ?")
             .bind(user_id.to_string())
             .bind(connector)

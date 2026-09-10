@@ -4,16 +4,8 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-socials-core = { path = "../../crates/core" }
-socials-persistence = { path = "../../crates/persistence" }
-socials-server = { path = "../../crates/server" }
 tauri = { version = "2", features = [] }
-axum.workspace = true
 tokio.workspace = true
-serde.workspace = true
-uuid.workspace = true
-chrono.workspace = true
-sqlx.workspace = true
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

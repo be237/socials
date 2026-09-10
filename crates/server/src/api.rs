@@ -1,26 +1,29 @@
 use axum::{
-    Router,
+    extract::ws::{Message as WsMessage, WebSocket},
+    extract::{Path, State, WebSocketUpgrade},
+    response::Response,
     routing::{get, post},
-    Json,
-    extract::{State, Path},
+    Json, Router,
 };
-use tower_http::cors::{CorsLayer, Any};
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use chrono::Utc;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tower_http::cors::{Any, CorsLayer};
+use uuid::Uuid;
 
-use socials_core::entities::conversation::{Conversation, ConversationType};
-use socials_core::entities::message::{Message, MessageType, MessageStatus};
-use socials_core::entities::user::User;
-use socials_core::services::CoreService;
 use crate::telegram::TelegramBot;
+use socials_core::entities::conversation::{Conversation, ConversationType};
+use socials_core::entities::message::{Message, MessageStatus, MessageType};
+use socials_core::entities::user::User;
+use socials_core::events::bus::EventBus;
+use socials_core::services::CoreService;
 
 #[derive(Clone)]
 pub struct AppState {
     pub core: Arc<CoreService>,
     pub telegram: Arc<RwLock<Option<TelegramBot>>>,
+    pub event_bus: Arc<EventBus>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -32,10 +35,18 @@ pub struct ApiResponse<T: Serialize> {
 
 impl<T: Serialize> ApiResponse<T> {
     pub fn success(data: T) -> Self {
-        Self { success: true, data: Some(data), error: None }
+        Self {
+            success: true,
+            data: Some(data),
+            error: None,
+        }
     }
     pub fn error(msg: &str) -> Self {
-        Self { success: false, data: None, error: Some(msg.to_string()) }
+        Self {
+            success: false,
+            data: None,
+            error: Some(msg.to_string()),
+        }
     }
 }
 
@@ -71,28 +82,38 @@ pub async fn seed_demo_data(core: &CoreService) {
     let _ = core.create_user(&demo_user).await;
 
     let demo_data = vec![
-        ("Telegram - Alice", vec![
-            ("Alice", "Hey, tu es la ?"),
-            ("Vous", "Oui ! Quoi de neuf ?"),
-            ("Alice", "On se voit ce weekend ?"),
-            ("Vous", "Bonne idee ! Samedi aprem ?"),
-            ("Alice", "Parfait, au cafe a 15h"),
-        ]),
-        ("Discord - Dev Team", vec![
-            ("Marc", "Le build est passe !"),
-            ("Sophie", "Super, je merge"),
-            ("Vous", "Je review la PR"),
-            ("Marc", "Merci"),
-        ]),
-        ("Gmail - Newsletter", vec![
-            ("Newsletter", "Votre resume tech de la semaine"),
-        ]),
-        ("WhatsApp - Famille", vec![
-            ("Maman", "N'oublie pas le diner dimanche"),
-            ("Vous", "J'y serai !"),
-            ("Papa", "A 19h pile"),
-            ("Vous", "OK"),
-        ]),
+        (
+            "Telegram - Alice",
+            vec![
+                ("Alice", "Hey, tu es la ?"),
+                ("Vous", "Oui ! Quoi de neuf ?"),
+                ("Alice", "On se voit ce weekend ?"),
+                ("Vous", "Bonne idee ! Samedi aprem ?"),
+                ("Alice", "Parfait, au cafe a 15h"),
+            ],
+        ),
+        (
+            "Discord - Dev Team",
+            vec![
+                ("Marc", "Le build est passe !"),
+                ("Sophie", "Super, je merge"),
+                ("Vous", "Je review la PR"),
+                ("Marc", "Merci"),
+            ],
+        ),
+        (
+            "Gmail - Newsletter",
+            vec![("Newsletter", "Votre resume tech de la semaine")],
+        ),
+        (
+            "WhatsApp - Famille",
+            vec![
+                ("Maman", "N'oublie pas le diner dimanche"),
+                ("Vous", "J'y serai !"),
+                ("Papa", "A 19h pile"),
+                ("Vous", "OK"),
+            ],
+        ),
     ];
 
     let mut offset = 0i64;
@@ -137,22 +158,49 @@ pub fn create_router(state: AppState) -> Router {
         .allow_headers(Any);
 
     Router::new()
-        .route("/api/conversations", get(get_conversations).post(create_conversation))
+        .route(
+            "/api/conversations",
+            get(get_conversations).post(create_conversation),
+        )
         .route("/api/conversations/:id", get(get_conversation))
         .route("/api/conversations/:id/messages", get(get_messages))
         .route("/api/messages", post(send_message))
+        .route("/api/ws", get(websocket))
         .route("/api/health", get(health_check))
         .layer(cors)
         .with_state(state)
+}
+
+async fn websocket(ws: WebSocketUpgrade, State(state): State<AppState>) -> Response {
+    ws.on_upgrade(move |socket| stream_events(socket, state.event_bus.subscribe_broadcast()))
+}
+
+async fn stream_events(
+    mut socket: WebSocket,
+    mut events: tokio::sync::broadcast::Receiver<socials_core::events::EventEnvelope>,
+) {
+    loop {
+        match events.recv().await {
+            Ok(event) => {
+                let payload = match serde_json::to_string(&event) {
+                    Ok(payload) => payload,
+                    Err(_) => break,
+                };
+                if socket.send(WsMessage::Text(payload.into())).await.is_err() {
+                    break;
+                }
+            }
+            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+            Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+        }
+    }
 }
 
 async fn health_check() -> Json<ApiResponse<&'static str>> {
     Json(ApiResponse::success("ok"))
 }
 
-async fn get_conversations(
-    State(state): State<AppState>,
-) -> Json<ApiResponse<Vec<Conversation>>> {
+async fn get_conversations(State(state): State<AppState>) -> Json<ApiResponse<Vec<Conversation>>> {
     match state.core.list_all_conversations().await {
         Ok(convos) => Json(ApiResponse::success(convos)),
         Err(e) => Json(ApiResponse::error(&e.to_string())),
@@ -170,10 +218,14 @@ async fn create_conversation(
         _ => ConversationType::Private,
     };
 
+    let user = match state.core.get_or_create_default_user().await {
+        Ok(user) => user,
+        Err(e) => return Json(ApiResponse::error(&e.to_string())),
+    };
     let now = Utc::now();
     let conversation = Conversation {
         id: Uuid::new_v4(),
-        user_id: Uuid::new_v4(),
+        user_id: user.id,
         conversation_type: conv_type,
         title: request.title,
         created_at: now,

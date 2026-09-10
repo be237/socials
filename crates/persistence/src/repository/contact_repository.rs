@@ -1,9 +1,9 @@
 use async_trait::async_trait;
+use socials_core::entities::contact::Contact;
+use socials_core::repositories::{ContactRepository, Error};
 use sqlx::Row;
 use sqlx::SqlitePool;
 use uuid::Uuid;
-use socials_core::entities::contact::Contact;
-use socials_core::repositories::{ContactRepository, Error};
 
 pub struct SqliteContactRepository {
     pool: SqlitePool,
@@ -64,13 +64,15 @@ impl ContactRepository for SqliteContactRepository {
     }
 
     async fn update(&self, contact: &Contact) -> Result<Contact, Error> {
-        sqlx::query("UPDATE contacts SET display_name = ?, avatar_url = ?, updated_at = ? WHERE id = ?")
-            .bind(&contact.display_name)
-            .bind(&contact.avatar_url)
-            .bind(contact.updated_at.to_rfc3339())
-            .bind(contact.id.to_string())
-            .execute(&self.pool)
-            .await?;
+        sqlx::query(
+            "UPDATE contacts SET display_name = ?, avatar_url = ?, updated_at = ? WHERE id = ?",
+        )
+        .bind(&contact.display_name)
+        .bind(&contact.avatar_url)
+        .bind(contact.updated_at.to_rfc3339())
+        .bind(contact.id.to_string())
+        .execute(&self.pool)
+        .await?;
         Ok(contact.clone())
     }
 

@@ -1,13 +1,9 @@
-pub mod sqlite;
 pub mod repository;
+pub mod sqlite;
 
-pub use sqlite::Database;
 pub use repository::{
+    SqliteAccountRepository, SqliteAttachmentRepository, SqliteContactRepository,
+    SqliteConversationRepository, SqliteIdentityRepository, SqliteMessageRepository,
     SqliteUserRepository,
-    SqliteAccountRepository,
-    SqliteContactRepository,
-    SqliteIdentityRepository,
-    SqliteConversationRepository,
-    SqliteMessageRepository,
-    SqliteAttachmentRepository,
 };
+pub use sqlite::Database;

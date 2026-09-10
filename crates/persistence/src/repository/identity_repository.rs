@@ -1,9 +1,9 @@
 use async_trait::async_trait;
+use socials_core::entities::identity::Identity;
+use socials_core::repositories::{Error, IdentityRepository};
 use sqlx::Row;
 use sqlx::SqlitePool;
 use uuid::Uuid;
-use socials_core::entities::identity::Identity;
-use socials_core::repositories::{IdentityRepository, Error};
 
 pub struct SqliteIdentityRepository {
     pool: SqlitePool,

@@ -1,7 +1,7 @@
 use super::{Event, EventEnvelope};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{RwLock, mpsc};
+use tokio::sync::{broadcast, mpsc, RwLock};
 use uuid::Uuid;
 
 pub type EventCallback = Box<dyn Fn(EventEnvelope) + Send + Sync>;
@@ -9,6 +9,7 @@ pub type EventCallback = Box<dyn Fn(EventEnvelope) + Send + Sync>;
 pub struct EventBus {
     subscribers: Arc<RwLock<HashMap<String, Vec<Subscriber>>>>,
     event_tx: mpsc::UnboundedSender<EventEnvelope>,
+    broadcast_tx: broadcast::Sender<EventEnvelope>,
 }
 
 struct Subscriber {
@@ -19,7 +20,8 @@ struct Subscriber {
 impl EventBus {
     pub fn new() -> Self {
         let (event_tx, mut event_rx) = mpsc::unbounded_channel::<EventEnvelope>();
-        let subscribers: Arc<RwLock<HashMap<String, Vec<Subscriber>>>> = 
+        let (broadcast_tx, _) = broadcast::channel(256);
+        let subscribers: Arc<RwLock<HashMap<String, Vec<Subscriber>>>> =
             Arc::new(RwLock::new(HashMap::new()));
         let subscribers_clone = Arc::clone(&subscribers);
 
@@ -28,16 +30,14 @@ impl EventBus {
             while let Some(envelope) = event_rx.recv().await {
                 let event_name = format!("{}", envelope.event);
                 let subs = subscribers_clone.read().await;
-                
+
                 if let Some(handlers) = subs.get(&event_name) {
-                    let handlers_clone: Vec<Arc<EventCallback>> = handlers
-                        .iter()
-                        .map(|s| Arc::clone(&s.handler))
-                        .collect();
-                    
+                    let handlers_clone: Vec<Arc<EventCallback>> =
+                        handlers.iter().map(|s| Arc::clone(&s.handler)).collect();
+
                     for handler in handlers_clone {
                         let env = envelope.clone();
-                        
+
                         tokio::spawn(async move {
                             handler(env);
                         });
@@ -45,18 +45,24 @@ impl EventBus {
                 }
             }
         });
-        
+
         Self {
             subscribers,
             event_tx,
+            broadcast_tx,
         }
     }
 
     pub async fn publish(&self, event: Event) -> Result<(), String> {
         let envelope = EventEnvelope::new(event);
+        let _ = self.broadcast_tx.send(envelope.clone());
         self.event_tx
             .send(envelope)
             .map_err(|e| format!("Failed to send event: {}", e))
+    }
+
+    pub fn subscribe_broadcast(&self) -> broadcast::Receiver<EventEnvelope> {
+        self.broadcast_tx.subscribe()
     }
 
     pub async fn subscribe<F>(&self, event_name: &str, handler: F) -> Uuid
@@ -109,7 +115,8 @@ mod tests {
 
         bus.subscribe("MESSAGE_RECEIVED", move |_event| {
             counter_clone.fetch_add(1, Ordering::SeqCst);
-        }).await;
+        })
+        .await;
 
         let event = Event::MessageReceived {
             message_id: Uuid::new_v4(),
@@ -133,9 +140,11 @@ mod tests {
         let counter = Arc::new(AtomicUsize::new(0));
         let counter_clone = counter.clone();
 
-        let subscriber_id = bus.subscribe("TEST_EVENT", move |_event| {
-            counter_clone.fetch_add(1, Ordering::SeqCst);
-        }).await;
+        let subscriber_id = bus
+            .subscribe("TEST_EVENT", move |_event| {
+                counter_clone.fetch_add(1, Ordering::SeqCst);
+            })
+            .await;
 
         let result = bus.unsubscribe("TEST_EVENT", subscriber_id).await;
         assert!(result);

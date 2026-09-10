@@ -1,9 +1,9 @@
 use async_trait::async_trait;
+use socials_core::entities::attachment::{Attachment, AttachmentType};
+use socials_core::repositories::{AttachmentRepository, Error};
 use sqlx::Row;
 use sqlx::SqlitePool;
 use uuid::Uuid;
-use socials_core::entities::attachment::{Attachment, AttachmentType};
-use socials_core::repositories::{AttachmentRepository, Error};
 
 pub struct SqliteAttachmentRepository {
     pool: SqlitePool,

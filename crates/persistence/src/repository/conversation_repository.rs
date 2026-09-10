@@ -1,9 +1,9 @@
 use async_trait::async_trait;
+use socials_core::entities::conversation::{Conversation, ConversationType};
+use socials_core::repositories::{ConversationRepository, Error};
 use sqlx::Row;
 use sqlx::SqlitePool;
 use uuid::Uuid;
-use socials_core::entities::conversation::{Conversation, ConversationType};
-use socials_core::repositories::{ConversationRepository, Error};
 
 pub struct SqliteConversationRepository {
     pool: SqlitePool,
@@ -62,10 +62,12 @@ impl ConversationRepository for SqliteConversationRepository {
     }
 
     async fn find_by_user_id(&self, user_id: Uuid) -> Result<Vec<Conversation>, Error> {
-        let rows = sqlx::query("SELECT * FROM conversations WHERE user_id = ? ORDER BY last_message_at DESC")
-            .bind(user_id.to_string())
-            .fetch_all(&self.pool)
-            .await?;
+        let rows = sqlx::query(
+            "SELECT * FROM conversations WHERE user_id = ? ORDER BY last_message_at DESC",
+        )
+        .bind(user_id.to_string())
+        .fetch_all(&self.pool)
+        .await?;
 
         Ok(rows.into_iter().map(parse_conversation).collect())
     }

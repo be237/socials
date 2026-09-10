@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::fmt;
+use uuid::Uuid;
 
 pub mod bus;
 
@@ -100,7 +100,7 @@ impl fmt::Display for Event {
 
 pub type EventId = Uuid;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventEnvelope {
     pub id: EventId,
     pub event: Event,

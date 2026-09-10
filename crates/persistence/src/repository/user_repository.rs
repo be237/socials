@@ -1,9 +1,9 @@
 use async_trait::async_trait;
+use socials_core::entities::user::User;
+use socials_core::repositories::{Error, UserRepository};
 use sqlx::Row;
 use sqlx::SqlitePool;
 use uuid::Uuid;
-use socials_core::entities::user::User;
-use socials_core::repositories::{UserRepository, Error};
 
 pub struct SqliteUserRepository {
     pool: SqlitePool,
@@ -18,10 +18,12 @@ impl SqliteUserRepository {
 #[async_trait]
 impl UserRepository for SqliteUserRepository {
     async fn find_by_id(&self, id: Uuid) -> Result<Option<User>, Error> {
-        let row = sqlx::query("SELECT id, username, email, created_at, updated_at FROM users WHERE id = ?")
-            .bind(id.to_string())
-            .fetch_optional(&self.pool)
-            .await?;
+        let row = sqlx::query(
+            "SELECT id, username, email, created_at, updated_at FROM users WHERE id = ?",
+        )
+        .bind(id.to_string())
+        .fetch_optional(&self.pool)
+        .await?;
 
         let user = row.map(|row| User {
             id: Uuid::parse_str(row.get::<&str, _>("id")).unwrap(),
@@ -39,10 +41,12 @@ impl UserRepository for SqliteUserRepository {
     }
 
     async fn find_by_email(&self, email: &str) -> Result<Option<User>, Error> {
-        let row = sqlx::query("SELECT id, username, email, created_at, updated_at FROM users WHERE email = ?")
-            .bind(email)
-            .fetch_optional(&self.pool)
-            .await?;
+        let row = sqlx::query(
+            "SELECT id, username, email, created_at, updated_at FROM users WHERE email = ?",
+        )
+        .bind(email)
+        .fetch_optional(&self.pool)
+        .await?;
 
         let user = row.map(|row| User {
             id: Uuid::parse_str(row.get::<&str, _>("id")).unwrap(),

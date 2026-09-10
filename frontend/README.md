@@ -30,3 +30,16 @@ If you are developing a production application, we recommend enabling type-aware
 ```
 
 See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Développement
+
+Le backend est maintenant en Python + FastAPI :
+
+```bash
+cd ../backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python -m app.main
+```
+
+Dans un autre terminal, lance l'interface avec `npm run dev`.

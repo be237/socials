@@ -1,17 +1,13 @@
-use std::sync::Arc;
-use tokio::sync::RwLock;
 use socials_core::events::bus::EventBus;
 use socials_core::services::CoreService;
 use socials_persistence::{
-    Database,
-    SqliteUserRepository,
-    SqliteAccountRepository,
-    SqliteContactRepository,
-    SqliteConversationRepository,
-    SqliteMessageRepository,
+    Database, SqliteAccountRepository, SqliteContactRepository, SqliteConversationRepository,
+    SqliteMessageRepository, SqliteUserRepository,
 };
-use socials_server::api::{AppState, seed_demo_data, create_router};
+use socials_server::api::{create_router, seed_demo_data, AppState};
 use socials_server::telegram::TelegramBot;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 #[tokio::main]
 async fn main() {
@@ -41,39 +37,45 @@ async fn main() {
     ));
 
     // Initialize Telegram bot
-    let telegram_token = std::env::var("TELEGRAM_BOT_TOKEN")
-        .unwrap_or_else(|_| "8916975203:AAHPB8QBNUQl92ELeGoGqDEe1meEA9YRt1s".to_string());
-
     let telegram = Arc::new(RwLock::new(None));
 
-    match TelegramBot::new(telegram_token).await {
-        Ok(bot) => {
-            *telegram.write().await = Some(bot);
-            println!("Telegram bot connected!");
+    match std::env::var("TELEGRAM_BOT_TOKEN") {
+        Ok(telegram_token) if !telegram_token.trim().is_empty() => {
+            match TelegramBot::new(telegram_token).await {
+                Ok(bot) => {
+                    *telegram.write().await = Some(bot);
+                    println!("Telegram bot connected!");
 
-            // Start polling in background
-            let core_clone = core.clone();
-            let telegram_clone = telegram.clone();
-            tokio::spawn(async move {
-                loop {
-                    if let Some(bot) = telegram_clone.write().await.as_mut() {
-                        if let Err(e) = bot.poll_updates(&core_clone).await {
-                            eprintln!("Telegram poll error: {}", e);
+                    // Start polling in background
+                    let core_clone = core.clone();
+                    let telegram_clone = telegram.clone();
+                    tokio::spawn(async move {
+                        loop {
+                            if let Some(bot) = telegram_clone.write().await.as_mut() {
+                                if let Err(e) = bot.poll_updates(&core_clone).await {
+                                    eprintln!("Telegram poll error: {}", e);
+                                }
+                            }
+                            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                         }
-                    }
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    });
                 }
-            });
+                Err(e) => {
+                    eprintln!("Failed to connect Telegram bot: {}", e);
+                }
+            }
         }
-        Err(e) => {
-            eprintln!("Failed to connect Telegram bot: {}", e);
-        }
+        _ => eprintln!("TELEGRAM_BOT_TOKEN is not set; Telegram integration is disabled"),
     }
 
     // Seed demo data only if no conversations exist
     seed_demo_data(&core).await;
 
-    let state = AppState { core, telegram };
+    let state = AppState {
+        core: core.clone(),
+        telegram,
+        event_bus: core.event_bus_arc(),
+    };
     let app = create_router(state);
 
     println!("Socials API running on http://localhost:3000");
