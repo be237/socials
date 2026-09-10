@@ -7,6 +7,7 @@ edition.workspace = true
 socials-core = { path = "../../crates/core" }
 socials-persistence = { path = "../../crates/persistence" }
 socials-server = { path = "../../crates/server" }
+socials-telegram-user = { path = "../../connectors/telegram-user" }
 tauri = { version = "2", features = [] }
 axum.workspace = true
 tokio.workspace = true

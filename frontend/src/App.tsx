@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import Onboarding from './Onboarding'
 
 interface Message {
   id: string
@@ -16,6 +17,13 @@ interface Conversation {
   title: string
   conversation_type: string
   last_message_at: string | null
+}
+
+interface Account {
+  connector: string
+  display_name: string
+  platform_account_id: string
+  is_connected: boolean
 }
 
 const API = 'http://localhost:3000/api'
@@ -61,7 +69,29 @@ export default function App() {
   const [showNewChat, setShowNewChat] = useState(false)
   const [newChatTitle, setNewChatTitle] = useState('')
   const [isOnline, setIsOnline] = useState<boolean | null>(null)
+  const [_accounts, setAccounts] = useState<Account[]>([])
+  const [showOnboarding, setShowOnboarding] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Check accounts on mount
+  useEffect(() => {
+    const checkAccounts = async () => {
+      try {
+        const r = await fetch(`${API}/accounts`)
+        if (r.ok) {
+          const d = await r.json()
+          const accs = d.data || []
+          setAccounts(accs)
+          if (accs.length === 0) {
+            setShowOnboarding(true)
+          }
+        }
+      } catch {
+        // Server not ready yet
+      }
+    }
+    checkAccounts()
+  }, [])
 
   // Poll conversations & health every 2.5 seconds
   useEffect(() => {
@@ -149,6 +179,20 @@ export default function App() {
     } catch (err) {
       console.error("Erreur création conversation:", err)
     }
+  }
+
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false)
+    // Refresh accounts
+    fetch(`${API}/accounts`)
+      .then(r => r.json())
+      .then(d => setAccounts(d.data || []))
+      .catch(() => {})
+  }
+
+  // Show onboarding if no accounts
+  if (showOnboarding) {
+    return <Onboarding onComplete={handleOnboardingComplete} />
   }
 
   const filtered = conversations.filter(c =>

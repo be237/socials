@@ -10,8 +10,9 @@ use socials_persistence::{
     SqliteConversationRepository,
     SqliteMessageRepository,
 };
-use socials_server::api::{AppState, seed_demo_data, create_router};
+use socials_server::api::{AppState, AuthState, seed_demo_data, create_router};
 use socials_server::telegram::TelegramBot;
+use socials_telegram_user::TelegramUserClient;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -45,39 +46,37 @@ pub fn run() {
                     event_bus,
                 ));
 
-                // Initialize Telegram bot
-                let telegram_token = std::env::var("TELEGRAM_BOT_TOKEN")
-                    .unwrap_or_else(|_| "8916975203:AAHPB8QBNUQl92ELeGoGqDEe1meEA9YRt1s".to_string());
+                // Initialize Telegram user client (MTProto)
+                let mut telegram_user = TelegramUserClient::new(&data_dir);
+                if let Err(e) = telegram_user.connect().await {
+                    eprintln!("Telegram user client: {}", e);
+                }
 
-                let telegram = Arc::new(RwLock::new(None));
-
-                match TelegramBot::new(telegram_token).await {
-                    Ok(bot) => {
-                        *telegram.write().await = Some(bot);
-                        println!("Telegram bot connected!");
-
-                        // Start polling in background
-                        let core_clone = core.clone();
-                        let telegram_clone = telegram.clone();
-                        tokio::spawn(async move {
-                            loop {
-                                if let Some(bot) = telegram_clone.write().await.as_mut() {
-                                    if let Err(e) = bot.poll_updates(&core_clone).await {
-                                        eprintln!("Telegram poll error: {}", e);
-                                    }
-                                }
-                                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                            }
-                        });
-                    }
-                    Err(e) => {
-                        eprintln!("Failed to connect Telegram bot: {}", e);
+                // Initialize Telegram bot (fallback, only if TELEGRAM_BOT_TOKEN is set)
+                let telegram_bot = Arc::new(RwLock::new(None));
+                if let Ok(telegram_token) = std::env::var("TELEGRAM_BOT_TOKEN") {
+                    match TelegramBot::new(telegram_token).await {
+                        Ok(bot) => {
+                            *telegram_bot.write().await = Some(bot);
+                            println!("Telegram bot connected (fallback mode)!");
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to connect Telegram bot: {}", e);
+                        }
                     }
                 }
 
+                let auth_state = AuthState {
+                    telegram: Arc::new(RwLock::new(telegram_user)),
+                };
+
                 seed_demo_data(&core).await;
 
-                let state = AppState { core, telegram };
+                let state = AppState {
+                    core,
+                    telegram: telegram_bot,
+                    auth: auth_state,
+                };
                 let router = create_router(state);
 
                 let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")

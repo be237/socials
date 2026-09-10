@@ -1,5 +1,7 @@
 pub mod api;
+pub mod auth;
 pub mod telegram;
+pub mod whatsapp;
 
 use axum::Router;
 

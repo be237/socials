@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 socials-core = { path = "../core" }
 socials-persistence = { path = "../persistence" }
+socials-telegram-user = { path = "../../connectors/telegram-user" }
 axum.workspace = true
 tokio.workspace = true
 serde.workspace = true

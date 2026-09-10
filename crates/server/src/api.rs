@@ -16,11 +16,20 @@ use socials_core::entities::message::{Message, MessageType, MessageStatus};
 use socials_core::entities::user::User;
 use socials_core::services::CoreService;
 use crate::telegram::TelegramBot;
+use crate::auth;
+use crate::whatsapp;
+use socials_telegram_user::TelegramUserClient;
+
+#[derive(Clone)]
+pub struct AuthState {
+    pub telegram: Arc<RwLock<TelegramUserClient>>,
+}
 
 #[derive(Clone)]
 pub struct AppState {
     pub core: Arc<CoreService>,
     pub telegram: Arc<RwLock<Option<TelegramBot>>>,
+    pub auth: AuthState,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -142,6 +151,16 @@ pub fn create_router(state: AppState) -> Router {
         .route("/api/conversations/:id/messages", get(get_messages))
         .route("/api/messages", post(send_message))
         .route("/api/health", get(health_check))
+        .route("/api/accounts", get(auth::get_accounts))
+        .route("/api/auth/telegram/request-code", post(auth::telegram_request_code))
+        .route("/api/auth/telegram/sign-in", post(auth::telegram_sign_in))
+        .route("/api/auth/telegram/status", get(auth::telegram_status))
+        .route("/api/auth/telegram/disconnect", post(auth::telegram_disconnect))
+        .route("/api/auth/whatsapp/start", post(whatsapp::whatsapp_start))
+        .route("/api/auth/whatsapp/qr", get(whatsapp::whatsapp_qr))
+        .route("/api/auth/whatsapp/pair-code", post(whatsapp::whatsapp_pair_code))
+        .route("/api/auth/whatsapp/status", get(whatsapp::whatsapp_status))
+        .route("/api/auth/whatsapp/disconnect", post(whatsapp::whatsapp_disconnect))
         .layer(cors)
         .with_state(state)
 }
